@@ -7,11 +7,14 @@
 #include <string.h>
 #include <errno.h>
 
-#include <utils.h>
-
 #define CODE_GET_INT 0xA1
 #define CODE_GET_FLOAT 0xA2
 #define CODE_GET_STR 0xA3
+
+#define CODE_SEND_INT 0xB1
+#define CODE_SEND_FLOAT 0xB2
+#define CODE_SEND_STR 0xB3
+
 
 #define CODE_MAT "1399"
 #define DEV_FILE "/dev/serial0"
@@ -100,4 +103,48 @@ char* get_str() {
     }
 
     return str;
+}
+
+void generic_send(char CODE, void* content, int content_size) {
+    int fd = -1;
+    fd = open(DEV_FILE, O_RDWR | O_NOCTTY);
+   
+    if(fd == -1) {
+        fprintf(stderr, "Failed to open `%s`\n", DEV_FILE);
+        exit(1);
+    }
+
+    struct termios options;
+    
+    tcgetattr(fd, &options);
+    options.c_cflag = B115200 | CS8 | CLOCAL | CREAD;     //<Set baud rate
+    options.c_iflag = IGNPAR;
+    options.c_oflag = 0;
+    options.c_lflag = 0;
+    tcflush(fd, TCIFLUSH);
+    tcsetattr(fd, TCSANOW, &options);
+
+    char* msg = malloc(5 + content_size);
+    msg[0] = CODE;
+    strcat(msg, CODE_MAT);
+    strcat(msg, content);
+    const int writed_s = write(fd, &msg[0], sizeof(msg));
+   
+    if(writed_s < 0) {
+        fprintf(stderr, "Failed to get_generic, error number %d:  `%s`\n", errno, strerror(errno));
+        close(fd);
+        exit(1);
+    }
+    
+    if(writed_s < sizeof(msg)) {
+        fprintf(stderr, "Failed to get_generic, impossible to write entire message content\n");
+        close(fd);
+        exit(1);
+    }
+    
+    close(fd);
+}
+
+void send_str(char* content, int content_size) {
+    generic_send(CODE_SEND_STR, content, content_size);
 }

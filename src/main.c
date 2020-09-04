@@ -13,6 +13,8 @@ int main() {
     int option;
     scanf("%d", &option);
 
+    char c_content[255];
+
     switch(option) {
         case 0:
             printf("\nResponse: %d\n", get_int());
@@ -22,6 +24,19 @@ int main() {
             break;
         case 2:
             printf("\nResponse: %s\n", get_str());
+            break;
+        case 3:
+            break;
+        case 4:
+            break;
+        case 5:
+            printf("\nType your message: " );
+
+            // We need this to flush the newline typed after scanf
+            getc(stdin);
+            
+            fgets(c_content, 255, stdin);
+            send_str(c_content, 255);
             break;
         default:
             printf("tt\n");
