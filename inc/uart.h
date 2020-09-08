@@ -15,9 +15,20 @@
 #define CODE_SEND_FLOAT 0xB2
 #define CODE_SEND_STR 0xB3
 
-
-#define CODE_MAT "1399"
 #define DEV_FILE "/dev/serial0"
+
+const unsigned char CODE_MAT[4] = {1, 3, 9, 9};
+
+
+typedef union {
+    struct {
+        unsigned char cmd;
+        unsigned char payload[4];
+        unsigned char auth[4];
+    } data;
+    unsigned char bytes[9];
+} SendPackage;
+
 
 void get_generic(char* fd_path, char CODE, int response_s, void* response, int comp) {
     int fd = -1;
@@ -105,7 +116,7 @@ char* get_str() {
     return str;
 }
 
-void generic_send(char CODE, void* content, int content_size) {
+void generic_send(char CODE, void* content, int content_size, void* response, int response_size) {
     int fd = -1;
     fd = open(DEV_FILE, O_RDWR | O_NOCTTY);
    
@@ -124,27 +135,44 @@ void generic_send(char CODE, void* content, int content_size) {
     tcflush(fd, TCIFLUSH);
     tcsetattr(fd, TCSANOW, &options);
 
-    char* msg = malloc(5 + content_size);
-    msg[0] = CODE;
-    strcat(msg, CODE_MAT);
-    strcat(msg, content);
-    const int writed_s = write(fd, &msg[0], sizeof(msg));
+    SendPackage package;
+    package.data.cmd = CODE;
+    memcpy(package.data.auth, CODE_MAT, 4);
+    memcpy(package.data.payload, content, 4);
+
+    const int writed_s = write(fd, package.bytes, 9);
    
     if(writed_s < 0) {
         fprintf(stderr, "Failed to get_generic, error number %d:  `%s`\n", errno, strerror(errno));
         close(fd);
         exit(1);
     }
-    
-    if(writed_s < sizeof(msg)) {
-        fprintf(stderr, "Failed to get_generic, impossible to write entire message content\n");
+
+    sleep(2);
+    int read_s = read(fd, response, response_size);
+
+    if(read_s < 0) {
+        fprintf(stderr, "Failed to get_generic, error number %d:  `%s`\n", errno, strerror(errno));
         close(fd);
         exit(1);
     }
-    
+
+    /* printf("response: %d\n", *(int*) response); */
     close(fd);
 }
 
 void send_str(char* content, int content_size) {
-    generic_send(CODE_SEND_STR, content, content_size);
+    /* generic_send(CODE_SEND_STR, content, content_size); */
+}
+
+void send_int(void* content) {
+    char response[4];
+    generic_send(CODE_SEND_INT, content, sizeof(int), response, sizeof(int));
+    printf("Response: %d\n", *(int*) response);
+}
+
+void send_float(void* content) {
+    char response[4];
+    generic_send(CODE_SEND_FLOAT, content, sizeof(float), response, sizeof(float));
+    printf("Response: %f\n", *(float*) response);
 }
